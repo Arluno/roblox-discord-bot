@@ -12,7 +12,7 @@ const client = new Client({
     ]
 });
 
-// Secrets are loaded securely from Render's Environment Variables
+// CONFIGURATION - Uses Environment Variables on Render
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHANNEL_ID = process.env.CHANNEL_ID;
 const PORT = process.env.PORT || 3000;
@@ -21,24 +21,33 @@ client.once('ready', () => {
     console.log(`Discord bot logged in as ${client.user.tag}!`);
 });
 
-// Root endpoint for health check
+// Root endpoint for health checks
 app.get('/', (req, res) => {
     res.status(200).send('Bot server is running online!');
 });
 
-// Endpoint that Roblox calls when profit updates occur
+// Endpoint that Roblox calls when profit/balance updates occur
 app.post('/api/profit', async (req, res) => {
-    const { companyName, profitAmount } = req.body;
+    const { companyName, profitAmount, newTotalBalance } = req.body;
 
-    if (!companyName || profitAmount === undefined) {
-        return res.status(400).json({ error: 'Missing companyName or profitAmount in request body.' });
+    if (!companyName) {
+        return res.status(400).json({ error: 'Missing companyName in request body.' });
     }
 
     try {
         const channel = await client.channels.fetch(CHANNEL_ID);
         if (channel && channel.isTextBased()) {
-            await channel.send(`**company profits:** ${companyName} just made ${profitAmount} dollar profit`);
-            console.log(`Logged profit update: ${companyName} made $${profitAmount}`);
+            let message = `**company profits:** ${companyName}`;
+            
+            if (profitAmount !== undefined) {
+                message += ` just made $${profitAmount} profit!`;
+            }
+            if (newTotalBalance !== undefined) {
+                message += ` | **Total Balance:** $${newTotalBalance}`;
+            }
+
+            await channel.send(message);
+            console.log(`Logged update for ${companyName}: +$${profitAmount} (Total: $${newTotalBalance})`);
             return res.status(200).json({ success: true });
         } else {
             console.error('Target channel was not found or is not text-based.');
